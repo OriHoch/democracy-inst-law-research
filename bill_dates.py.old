@@ -1,0 +1,257 @@
+from datapackage_pipelines.wrapper import ingest, spew
+import logging, datetime
+
+
+def to_date(dt):
+    if isinstance(dt, datetime.datetime):
+        return dt.date()
+    elif isinstance(dt, datetime.date):
+        return dt
+    else:
+        raise Exception('invalid dt type: {}'.format(dt))
+
+
+def update_first_event(ancestor_bills, bills, item_id, event_date, bill_attr,
+                       with_merges, match_committee_id=None):
+    event_date = to_date(event_date)
+    if event_date > datetime.date(1945, 1, 1):
+        if item_id in ancestor_bills and with_merges:
+            # it's an ancestor bill - update the related root bills
+            for bill_id in ancestor_bills[item_id]:
+                if not match_committee_id or match_committee_id == bills[bill_id]['CommitteeID']:
+                    if bill_attr in bills[bill_id]:
+                        # root bill already have attr, only update if it's an older date
+                        if bills[bill_id][bill_attr] > event_date:
+                            bills[bill_id][bill_attr] = event_date
+                    else:
+                        # first encounter of event for root bill
+                        bills[bill_id][bill_attr] = event_date
+        elif item_id in bills:
+            if not match_committee_id or match_committee_id == bills[item_id]['CommitteeID']:
+                # it's a root bill - update directly
+                if bill_attr in bills[item_id]:
+                    # already have attr, only update if it's an older date
+                    if bills[item_id][bill_attr] > event_date:
+                        bills[item_id][bill_attr] = event_date
+                else:
+                    # first encounter of event
+                    bills[item_id][bill_attr] = event_date
+
+
+def update_last_event(ancestor_bills, bills, item_id, event_date, bill_attr, with_merges):
+    event_date = to_date(event_date)
+    if event_date > datetime.date(1945, 1, 1):
+        if item_id in ancestor_bills and with_merges:
+            # it's an ancestor bill - update the related root bills
+            for bill_id in ancestor_bills[item_id]:
+                if bill_attr in bills[bill_id]:
+                    # root bill already have attr, only update if it's a newer date
+                    if bills[bill_id][bill_attr] < event_date:
+                        bills[bill_id][bill_attr] = event_date
+                else:
+                    # first encounter of event for root bill
+                    bills[bill_id][bill_attr] = event_date
+        elif item_id in bills:
+            # it's a root bill - update directly
+            if bill_attr in bills[item_id]:
+                # already have attr, only update if it's a newer date
+                if bills[item_id][bill_attr] < event_date:
+                    bills[item_id][bill_attr] = event_date
+            else:
+                # first encounter of event
+                bills[item_id][bill_attr] = event_date
+
+
+def update_event_count(ancestor_bills, bills, item_id, event_date, bill_attr, with_merges):
+    event_date = to_date(event_date)
+    if event_date > datetime.date(1945, 1, 1):
+        if item_id in ancestor_bills and with_merges:
+            # it's an ancestor bill - update the related root bills
+            for bill_id in ancestor_bills[item_id]:
+                bills[bill_id].setdefault(bill_attr, 0)
+                bills[bill_id][bill_attr] += 1
+        elif item_id in bills:
+            # it's a root bill - update directly
+            bills[item_id].setdefault(bill_attr, 0)
+            bills[item_id][bill_attr] += 1
+
+
+def get_bills(bills, events, knessetdates):
+    for bill in bills:
+        for event in events:
+            if bill.get(event['to']) and bill.get(event['from']):
+                fr = to_date(bill[event['from']])
+                to = to_date(bill[event['to']])
+                bill[event['name']] = (to - fr).days
+                if bill[event['name']] < 0:
+                    negate = True
+                    to, fr = fr, to
+                else:
+                    negate = False
+                event_days = 0
+                found_from = False
+                for knessetdate_from, knessetdate_to in knessetdates:
+                    if found_from:
+                        if to <= knessetdate_to:
+                            if to >= knessetdate_from:
+                                # event finished during this knessetdate
+                                event_days += (to - knessetdate_from).days
+                            break
+                        else:
+                            # event finished after this knessetdate
+                            event_days += (knessetdate_to - knessetdate_from).days
+                    elif fr <= knessetdate_to:
+                        # event started before or during this knessetdate
+                        found_from = True
+                        if to > knessetdate_from:
+                            # event finished during or after this knessetdate
+                            if to <= knessetdate_to:
+                                # event finished during this knessetdate
+                                if fr >= knessetdate_from:
+                                    # event started during this knessetdate
+                                    event_days += (to - fr).days
+                                else:
+                                    # event started before this knessetdate (during pagra)
+                                    event_days += (to - knessetdate_from).days
+                            else:
+                                # event finished after this knessetdata
+                                if fr >= knessetdate_from:
+                                    # event started during this knessetdate
+                                    event_days += (knessetdate_to - fr).days
+                                else:
+                                    # event started before this knessetdate (during pagra)
+                                    event_days += (knessetdate_to - knessetdate_from).days
+                if not found_from:
+                    logging.warning('did not find from for bill id {}: {}'.format(bill['BillID'], fr))
+                    event_days = 0
+                elif negate:
+                    event_days = -1 * event_days
+                bill[event['name'] + ' - לא כולל פגרות'] = event_days
+        yield bill
+
+
+def get_resources(resources, parameters):
+    statuses = {kns_status['StatusID']: kns_status for kns_status in next(resources)}
+    bills = {}
+    ancestor_bills = {}
+    for kns_bill in next(resources):
+        bills[kns_bill['BillID']] = kns_bill
+        for ancestor_bill_id in kns_bill['ancestors']:
+            ancestor_bills.setdefault(ancestor_bill_id, set()).add(kns_bill['BillID'])
+    for plmitem in next(resources):
+        status = statuses[plmitem['StatusID']]['Desc']
+        update_first_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                           'first_discussion_in_plenum', False)
+        update_first_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                           'first_discussion_in_plenum_with_merges', True)
+        if status == 'הונחה על שולחן הכנסת לקריאה ראשונה':
+            update_first_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                               'first_call', False)
+            update_first_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                               'first_call_with_merges', True)
+        elif status in ['הונחה על שולחן הכנסת לקריאה שנייה-שלישית']:
+            update_last_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                              'last_second_third_call', False)
+            update_last_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                              'last_second_third_call_with_merges', True)
+        elif status in ['לדיון במליאה לקראת קריאה שנייה-שלישית',
+                        'לדיון במליאה לקראת קריאה שלישית']:
+            update_last_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                              'last_second_third_plenum_discussion', False)
+            update_last_event(ancestor_bills, bills, plmitem['ItemID'], plmitem['sessionStartDate'],
+                              'last_second_third_plenum_discussion_with_merges', True)
+    for cmtitem in next(resources):
+        status = statuses[cmtitem['StatusID']]['Desc']
+        update_first_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                           'first_discussion_in_committee', False, match_committee_id=cmtitem['CommitteeID'])
+        update_first_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                           'first_discussion_in_committee_with_merges', True, match_committee_id=cmtitem['CommitteeID'])
+        update_event_count(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                           'committee_discussions_count', False)
+        update_event_count(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                           'committee_discussions_count_with_merges', True)
+        if status == 'בהכנה לקריאה שנייה-שלישית בוועדה':
+            update_first_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                               'first_second_third_in_committee', False)
+            update_first_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                               'first_second_third_in_committee_with_merges', True)
+            update_last_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                              'last_second_third_in_committee', False)
+            update_last_event(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                              'last_second_third_in_committee_with_merges', True)
+            update_event_count(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                               'second_third_in_committee_call_count', False)
+            update_event_count(ancestor_bills, bills, cmtitem['ItemID'], cmtitem['sessionStartDate'],
+                               'second_third_in_committee_call_count_with_merges', True)
+    # {'התקבלה בקריאה שלישית', 'להסרה מסדר היום לבקשת ועדה', 'הונחה על שולחן הכנסת לקריאה שנייה-שלישית',
+    # 'לדיון במליאה לקראת הקריאה הראשונה', 'לדיון במליאה לקראת קריאה שלישית', 'הונחה על שולחן הכנסת לקריאה ראשונה',
+    # 'לאישור פיצול במליאה', 'במליאה לדיון מוקדם', 'לדיון במליאה לקראת קריאה שנייה-שלישית',
+    # 'לדיון במליאה על החלת דין רציפות'}
+    for vote in next(resources):
+        bill_id = vote['sess_item_id']
+        vote_date = to_date(vote['vote_date'])
+        update_last_event(ancestor_bills, bills, bill_id, vote_date, 'last_vote', False)
+        update_last_event(ancestor_bills, bills, bill_id, vote_date, 'last_vote_with_merges', True)
+        update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_vote', False)
+        update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_vote_with_merges', True)
+        if vote['is_accepted']:
+            update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_accepted_vote', False)
+            update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_accepted_vote_with_merges', True)
+        if bill_id in bills and 'first_call' in bills[bill_id] and vote_date >= bills[bill_id]['first_call']:
+            update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_vote_after_first_call', False)
+            if vote['is_accepted']:
+                update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_accepted_vote_after_first_call', False)
+        if bill_id in bills and 'first_call_with_merges' in bills[bill_id] and vote_date >= bills[bill_id]['first_call_with_merges']:
+            update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_vote_after_first_call_with_merges', True)
+            if vote['is_accepted']:
+                update_first_event(ancestor_bills, bills, bill_id, vote_date, 'first_accepted_vote_after_first_call_with_merges', True)
+    knessetdates = []
+    for knessetdate in next(resources):
+        if knessetdate['PlenumFinish'] is not None:
+            kd = (to_date(knessetdate['PlenumStart']), to_date(knessetdate['PlenumFinish']))
+            knessetdates.append(kd)
+    yield get_bills(bills.values(), parameters['events'], knessetdates)
+
+
+def main():
+    parameters, datapackage, resources, stats = ingest() + ({},)
+    datapackage["resources"] = [datapackage['resources'][1]]
+    datapackage["resources"][0].update(name='bill_dates', path='bill_dates.csv')
+    datapackage["resources"][0]['schema']['fields'] += [{'name': 'first_call', 'type': 'date'},
+                                                        {'name': 'first_call_with_merges', 'type': 'date'},
+                                                        {'name': 'first_second_third_in_committee', 'type': 'date'},
+                                                        {'name': 'first_second_third_in_committee_with_merges', 'type': 'date'},
+                                                        {'name': 'last_second_third_in_committee', 'type': 'date'},
+                                                        {'name': 'last_second_third_in_committee_with_merges', 'type': 'date'},
+                                                        {'name': 'second_third_in_committee_call_count', 'type': 'integer'},
+                                                        {'name': 'second_third_in_committee_call_count_with_merges', 'type': 'integer'},
+                                                        {'name': 'last_second_third_call', 'type': 'date'},
+                                                        {'name': 'last_second_third_call_with_merges', 'type': 'date'},
+                                                        {'name': 'last_second_third_plenum_discussion', 'type': 'date'},
+                                                        {'name': 'last_second_third_plenum_discussion_with_merges', 'type': 'date'},
+                                                        {'name': 'first_vote_after_first_call', 'type': 'date'},
+                                                        {'name': 'first_vote_after_first_call_with_merges', 'type': 'date'},
+                                                        {'name': 'last_vote', 'type': 'date'},
+                                                        {'name': 'last_vote_with_merges', 'type': 'date'},
+                                                        {'name': 'first_accepted_vote_after_first_call', 'type': 'date'},
+                                                        {'name': 'first_accepted_vote_after_first_call_with_merges', 'type': 'date'},
+                                                        {'name': 'first_discussion_in_committee', 'type': 'date'},
+                                                        {'name': 'first_discussion_in_committee_with_merges', 'type': 'date'},
+                                                        {'name': 'first_discussion_in_plenum', 'type': 'date'},
+                                                        {'name': 'first_discussion_in_plenum_with_merges', 'type': 'date'},
+                                                        {'name': 'first_vote', 'type': 'date'},
+                                                        {'name': 'first_vote_with_merges', 'type': 'date'},
+                                                        {'name': 'first_accepted_vote', 'type': 'date'},
+                                                        {'name': 'first_accepted_vote_with_merges', 'type': 'date'},
+                                                        {'name': 'committee_discussions_count', 'type': 'integer'},
+                                                        {'name': 'committee_discussions_count_with_merges', 'type': 'integer'},]
+    for event in parameters['events']:
+        datapackage["resources"][0]['schema']['fields'].append({'name': event['name'],
+                                                                'type': 'integer'})
+        datapackage["resources"][0]['schema']['fields'].append({'name': event['name'] + ' - לא כולל פגרות',
+                                                                'type': 'integer'})
+    spew(datapackage, get_resources(resources, parameters), stats)
+
+
+if __name__ == '__main__':
+    main()

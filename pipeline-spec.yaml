@@ -1,0 +1,486 @@
+#download_tazkirim:
+#  pipeline:
+#  - run: download_tazkirim
+#    parameters:
+#      page_from: 1
+#      page_to: 9999
+#  - run: dump.to_path
+#    parameters:
+#      out-path: data/tazkirim
+#
+#bill_tazkirim:
+#  pipeline:
+#  - run: load_resource
+#    parameters:
+#      url: data/tazkirim/datapackage.json
+#      resource: tazkirim
+#  - run: knesset.load_resource
+#    cache: true
+#    parameters:
+#      path: bills/kns_bill/datapackage.json
+#      resource: kns_bill
+#  - run: bill_tazkirim
+#  - run: dump.to_path
+#    parameters:
+#      out-path: data/bill_tazkirim
+
+bill_dates:
+  pipeline:
+  - run: knesset.load_resource
+    parameters:
+      path: knesset/kns_status/datapackage.json
+      resource: kns_status
+  - run: knesset.load_resource
+    parameters:
+      path: committees/kns_committeesession/datapackage.json
+      resource: kns_committeesession
+  - run: knesset.load_resource
+    parameters:
+      path: committees/kns_cmtsessionitem/datapackage.json
+      resource: kns_cmtsessionitem
+  - run: knesset.load_resource
+    parameters:
+      path: plenum/kns_plenumsession/datapackage.json
+      resource: kns_plenumsession
+  - run: knesset.load_resource
+    parameters:
+      path: plenum/kns_plmsessionitem/datapackage.json
+      resource: kns_plmsessionitem
+  - run: knesset.load_resource
+    parameters:
+      path: bills/kns_billsplit/datapackage.json
+      resource: kns_billsplit
+  - run: knesset.load_resource
+    parameters:
+      path: bills/kns_billunion/datapackage.json
+      resource: kns_billunion
+  - run: filter
+    parameters:
+      resources: [kns_plmsessionitem, kns_cmtsessionitem]
+      in:
+      - ItemTypeID: 2
+  - run: keep_fields
+    parameters: {resource: kns_status, fields: [StatusID, Desc]}
+  - run: keep_fields
+    parameters: {resource: kns_committeesession, fields: [CommitteeSessionID, CommitteeID, StartDate, FinishDate]}
+  - run: keep_fields
+    parameters: {resource: kns_cmtsessionitem, fields: [CommitteeSessionID, ItemID, StatusID]}
+  - run: keep_fields
+    parameters: {resource: kns_plenumsession, fields: [PlenumSessionID, Name, StartDate, FinishDate]}
+  - run: keep_fields
+    parameters: {resource: kns_plmsessionitem, fields: [PlenumSessionID, ItemID, StatusID]}
+  - run: keep_fields
+    parameters: {resource: kns_billsplit, fields: [MainBillID, SplitBillID]}
+  - run: keep_fields
+    parameters: {resource: kns_billunion, fields: [MainBillID, UnionBillID]}
+  - run: knesset.load_resource
+    parameters:
+      path: votes/view_vote_rslts_hdr_approved/datapackage.json
+      resource: view_vote_rslts_hdr_approved
+  - run: keep_fields
+    parameters: {resource: view_vote_rslts_hdr_approved, fields: [session_id, sess_item_id, vote_item_dscr, vote_date, is_accepted]}
+  - run: knesset.load_resource
+    parameters:
+      path: bills/kns_bill/datapackage.json
+      resource: kns_bill
+  - run: keep_fields
+    parameters: {resource: kns_bill, fields: [BillID, KnessetNum, StatusID, SubTypeDesc, PublicationDate, CommitteeID]}
+  - run: knesset.load_resource
+    parameters:
+      path: knesset/kns_knessetdates/datapackage.json
+      resource: kns_knessetdates
+  - run: sort
+    parameters:
+      resources: kns_knessetdates
+      sort-by: "{PlenumStart}"
+  - run: bill_dates
+#   - run: filter
+#     parameters:
+#       resources: bill_dates
+#       in:
+#       - status: התקבלה בקריאה שלישית
+  - run: filter
+    parameters:
+      resources: bill_dates
+      in:
+      - sub_type: ממשלתית
+  - run: sort
+    parameters:
+      resources: bill_dates
+      sort-by: "{knesset_num:02}"
+  - run: dump.to_path
+    parameters:
+      out-path: data/bill_dates
+
+#bill_ancestors:
+#  pipeline:
+#  - run: knesset.load_resource
+#    parameters:
+#      path: committees/kns_committeesession/datapackage.json
+#      resource: kns_committeesession
+#  - run: knesset.load_resource
+#    parameters:
+#      path: committees/kns_cmtsessionitem/datapackage.json
+#      resource: kns_cmtsessionitem
+#  - run: knesset.load_resource
+#    parameters:
+#      path: bills/kns_billunion/datapackage.json
+#      resource: kns_billunion
+#  - run: knesset.load_resource
+#    parameters:
+#      path: bills/kns_bills/datapackage.json
+#      resource: kns_bills
+#  - run: bill_ancestors
+#  - run: dump.to_path
+#    parameters:
+#      out-path: data/bill_ancestors
+#
+#bill_dates_old:
+#  pipeline:
+#  - run: knesset.load_resource
+#    parameters:
+#      path: knesset/kns_status/datapackage.json
+#      resource: kns_status
+#  - run: knesset.load_resource
+#    parameters:
+#      path: bills/kns_billsplit/datapackage.json
+#      resource: kns_billsplit
+#  - run: knesset.load_resource
+#    parameters:
+#      path: bills/kns_billunion/datapackage.json
+#      resource: kns_billunion
+#  - run: knesset.load_resource
+#    parameters:
+#      path: bills/kns_bill/datapackage.json
+#      resource: kns_bill
+##  - run: filter
+##    cache: true
+##    parameters:
+##      resources: kns_bill
+##      in:
+##      - SubTypeDesc: ממשלתית
+#  - run: bill_ancestors
+#  - run: dump.to_path
+#    parameters:
+#      out-path: data/bill_ancestors
+##  - run: filter
+##    parameters:
+##      resources: kns_bill
+##      in:
+##      - status: התקבלה בקריאה שלישית
+#  - run: knesset.load_resource
+#    parameters:
+#      path: plenum/kns_plenumsession/datapackage.json
+#      resource: kns_plenumsession
+#  - run: knesset.load_resource
+#    parameters:
+#      path: plenum/kns_plmsessionitem/datapackage.json
+#      resource: kns_plmsessionitem
+#  - run: join
+#    parameters:
+#      source:
+#        name: kns_plenumsession
+#        key: ['PlenumSessionID']
+#        delete: true
+#      target:
+#        name: kns_plmsessionitem
+#        key: ['PlenumSessionID']
+#      fields:
+#        sessionStartDate:
+#          name: StartDate
+#  - run: filter
+#    parameters:
+#      resources: kns_plmsessionitem
+#      in:
+#      - ItemTypeDesc: הצעת חוק
+#  - run: knesset.load_resource
+#    parameters:
+#      path: committees/kns_committeesession/datapackage.json
+#      resource: kns_committeesession
+#  - run: knesset.load_resource
+#    parameters:
+#      path: committees/kns_cmtsessionitem/datapackage.json
+#      resource: kns_cmtsessionitem
+#  - run: join
+#    parameters:
+#      source:
+#        name: kns_committeesession
+#        key: ['CommitteeSessionID']
+#        delete: true
+#      target:
+#        name: kns_cmtsessionitem
+#        key: ['CommitteeSessionID']
+#      fields:
+#        sessionStartDate:
+#          name: StartDate
+#        CommitteeID: {}
+#  - run: filter
+#    parameters:
+#      resources: kns_cmtsessionitem
+#      in:
+#      - ItemTypeID: 2
+#  - run: knesset.load_resource
+#    parameters:
+#      path: votes/view_vote_rslts_hdr_approved/datapackage.json
+#      resource: view_vote_rslts_hdr_approved
+#  - run: knesset.load_resource
+#    parameters:
+#      path: knesset/kns_knessetdates/datapackage.json
+#      resource: kns_knessetdates
+#  - run: sort
+#    parameters:
+#      resources: kns_knessetdates
+#      sort-by: "{PlenumStart}"
+##  - run: filter
+##    parameters:
+##      resources: kns_bill
+##      in:
+##      - BillID: 2065101
+#  - run: bill_dates
+#    parameters:
+#      events:
+#      - name: כמה זמן חלף בין הגשת הצעת החוק ועד הקריאה הראשונה
+#        from: first_call_with_merges
+#        to: first_vote_after_first_call_with_merges
+#      - name: כמה זמן חלף בין הדיון הראשון במליאה ועד ההצבעה הראשונה במליאה
+#        from: first_discussion_in_plenum_with_merges
+#        to: first_vote_with_merges
+#      # - name: כמה זמן חלף בין אישור הצעת החוק בקריאה ראשונה ועד תחילת הדיון בה בוועדה הרלוונטית
+#      - name: כמה זמן חלף בין ההצבעה הראשונה שהתקבלה ועד תחילת הדיון בה בוועדה הרלוונטית
+#        from: first_accepted_vote_with_merges
+#        to: first_discussion_in_committee_with_merges
+#      - name: כמה זמן חלף בין תחילת הדיון בוועדה ועד לסיום הכנת החוק לקריאה שנייה ושלישית
+#        from: first_discussion_in_committee_with_merges
+#        to: last_second_third_in_committee_with_merges
+#      - name: כמה זמן חלף מהגשת הצעת החוק ועד לאישור החוק
+#        from: first_call_with_merges
+#        to: PublicationDate
+#      - name: כמה זמן חלף מהדיון הראשון במליאה ועד לאישור החוק
+#        from: first_discussion_in_plenum_with_merges
+#        to: PublicationDate
+#  - run: dump.to_path
+#    parameters:
+#      out-path: data/bill_dates
+
+
+bill_laws:
+  pipeline:
+  - run: knesset.load_resource
+    parameters:
+      path: laws/kns_law_binding/datapackage.json
+      resource: kns_law_binding
+  - run: knesset.load_resource
+    parameters:
+      path: bills/kns_bill/datapackage.json
+      resource: kns_bill
+  - run: join
+    parameters:
+      source: {name: kns_law_binding, key: ['LawID'], delete: true}
+      target: {name: kns_bill, key: ['BillID']}
+      fields: {'IsraelLawID': {aggregate: set}}
+  - run: knesset.load_resource
+    parameters:
+      path: laws/kns_israel_law_classification/datapackage.json
+      resource: kns_israel_law_classification
+  - run: bill_law_classification
+  - run: knesset.load_resource
+    parameters:
+      path: laws/kns_israel_law_ministry/datapackage.json
+      resource: kns_israel_law_ministry
+  - run: knesset.load_resource
+    parameters:
+      path: knesset/kns_govministry/datapackage.json
+      resource: kns_govministry
+  - run: bill_law_ministry
+  - run: dump.to_path
+    parameters:
+      out-path: data/bill_laws
+
+bill_count_pages:
+  pipeline:
+  - run: add_resource
+    parameters:
+      name: bill_count_pages
+      url: kns_bill_pages_fixed.csv
+  - run: stream_remote_resources
+  - run: bill_count_pages
+  - run: dump.to_path
+    parameters:
+      out-path: data/bill_count_pages
+
+bills_final:
+  dependencies:
+  - pipeline: ./bill_count_pages
+  - pipeline: ./bill_dates
+  - pipeline: ./bill_laws
+  pipeline:
+  - run: load_resource
+    parameters:
+      url: data/bill_dates/datapackage.json
+      resource: bill_dates
+  - run: load_resource
+    parameters:
+      url: data/bill_laws/datapackage.json
+      resource: kns_bill
+  - run: rename_resource
+    parameters:
+      src: kns_bill
+      dst: bill_laws
+  - run: knesset.load_resource
+    parameters:
+      path: committees/kns_committee/datapackage.json
+      resource: kns_committee
+  - run: load_resource
+    parameters:
+      url: data/bill_count_pages/datapackage.json
+      resource: bill_count_pages
+  - run: load_resource
+    parameters:
+      url: data/bill_tazkirim/datapackage.json
+      resource: bill_tazkirim
+  - run: rename_resource
+    parameters:
+      src: bill_tazkirim
+      dst: kns_bill
+  - run: filter
+    parameters:
+      resources: kns_bill
+      in:
+      - SubTypeDesc: ממשלתית
+  - run: join
+    parameters:
+      source: {name: kns_committee, key: ['CommitteeID'], delete: true}
+      target: {name: kns_bill, key: ['CommitteeID']}
+      fields: {'CommitteeName': {name: Name}}
+  - run: join
+    parameters:
+      source: {name: bill_dates, key: ['bill_id'], delete: true}
+      target: {name: kns_bill, key: ['BillID']}
+      fields:
+        "הונחה על שולחן הכנסת לקריאה ראשונה": {name: presented_to_plenum}
+        "דיון ראשון במליאה": {name: ancestor_first_plenum_discussion}
+        "כמה זמן חלף בין הגשת הצעת החוק ועד הקריאה הראשונה": {name: from_presented_to_first_call}
+#        "כמה זמן חלף בין הדיון הראשון במליאה ועד ההצבעה הראשונה במליאה": {name: }
+        "כמה זמן חלף בין ההצבעה הראשונה שהתקבלה ועד תחילת הדיון בה בוועדה הרלוונטית": {name: from_last_call_to_first_relevant_committee_discussion}
+        "כמה זמן חלף בין תחילת הדיון בוועדה ועד לסיום הכנת החוק לקריאה שנייה ושלישית": {name: from_first_relevant_committee_discussions_to_last}
+        "כמה זמן חלף מהגשת הצעת החוק ועד לאישור החוק": {name: from_presented_to_plenum_to_publication}
+        "כמה זמן חלף מהדיון הראשון במליאה ועד לאישור החוק": {name: from_first_plenum_discussion_to_publication}
+        "כמה זמן חלף בין הגשת הצעת החוק ועד הקריאה הראשונה - לא כולל פגרות": {name: from_presented_to_first_call_without_pagra}
+#        "כמה זמן חלף בין הדיון הראשון במליאה ועד ההצבעה הראשונה במליאה - לא כולל פגרות": {name: }
+        "כמה זמן חלף בין ההצבעה הראשונה שהתקבלה ועד תחילת הדיון בה בוועדה הרלוונטית - לא כולל פגרות": {name: from_last_call_to_first_relevant_committee_discussion_without_pagra}
+        "כמה זמן חלף בין תחילת הדיון בוועדה ועד לסיום הכנת החוק לקריאה שנייה ושלישית - לא כולל פגרות": {name: from_first_relevant_committee_discussions_to_last_without_pagra}
+        "כמה זמן חלף מהגשת הצעת החוק ועד לאישור החוק - לא כולל פגרות": {name: from_presented_to_plenum_to_publication_without_pagra}
+        "כמה זמן חלף מהדיון הראשון במליאה ועד לאישור החוק - לא כולל פגרות": {name: from_first_plenum_discussion_to_publication_without_pagra}
+  - run: join
+    parameters:
+      source: {name: bill_laws, key: ['BillID'], delete: true}
+      target: {name: kns_bill, key: ['BillID']}
+      fields:
+        "סיווג - תקציב": {name: classification_budget}
+        "סיווג - חוקי הסדרים": {name: classification_hesderim}
+        "השרים הממונים": {name: law_ministry_names}
+#         "מספר עמודי חקיקה": {name: num_pages}
+#         "חוק אחרון בחוברת - לא ניתן להעריך מספר עמודים": {name: is_last_page}
+  - run: join
+    parameters:
+      source: {name: bill_count_pages, key: ['BillID'], delete: true}
+      target: {name: kns_bill, key: ['BillID']}
+      fields:
+        "מספר עמודי חקיקה": {name: num_pages}
+        "מספר עמודי חקיקה - הערות": {name: num_pages_comment}
+  - run: filter
+    parameters:
+      out:
+      - PublicationDate: null
+  - run: sort
+    parameters:
+      resources: kns_bill
+      sort-by: '{BillID}'
+      reverse: true
+  - run: sort
+    parameters:
+      resources: kns_bill
+      sort-by: '{PublicationDate}'
+      reverse: true
+  - run: filter-publication-date
+    code: |
+      from datapackage_pipelines.wrapper import process
+      from datetime import datetime
+      def process_row(row, row_index, resource_descriptor, resource_index, parameters, stats):
+        if resource_descriptor['name'] == 'kns_bill':
+          row['PublicationDate'] = row['PublicationDate'].date()
+        return row
+      #   return row if (resource_descriptor['name'] != 'kns_bill'
+      #                  or row['PublicationDate'] < datetime(2018,7,2)) else None
+      def modify_datapackage(datapackage, parameters, stats):
+        for descriptor in datapackage['resources']:
+          if descriptor['name'] == 'kns_bill':
+            for field in descriptor['schema']['fields']:
+              if field['name'] == 'PublicationDate':
+                field['type'] = 'date'
+        return datapackage
+      process(modify_datapackage, process_row)
+  - run: set_field_names_order
+    code: |
+      from datapackage_pipelines.wrapper import process
+      from datetime import datetime
+      def process_row(row, row_index, resource_descriptor, resource_index, parameters, stats):
+        if resource_descriptor['name'] == 'kns_bill':
+          output_row = {}
+          for field in parameters['fields']:
+            if isinstance(field, str):
+              output_row[field] = row[field]
+            else:
+              source_name, target_name = list(field.items())[0]
+              output_row[target_name] = row[source_name]
+          row = output_row
+        return row
+      def modify_datapackage(datapackage, parameters, stats):
+        for descriptor in datapackage['resources']:
+          if descriptor['name'] == 'kns_bill':
+            schema_fields = {f['name']: f for f in descriptor['schema']['fields']}
+            fields = []
+            for field in parameters['fields']:
+              if isinstance(field, str):
+                fields.append(schema_fields[field])
+              else:
+                source_name, target_name = list(field.items())[0]
+                fields.append(dict(schema_fields[source_name], name=target_name))
+            descriptor['schema']['fields'] = fields
+        return datapackage
+      process(modify_datapackage, process_row)
+    parameters:
+      resources: kns_bill
+      fields:
+      - BillID: מזהה ייחודי של הצעות חוק
+      - KnessetNum: מספר הכנסת
+      - Name: שם החוק שהתקבל
+      - tazkir_offices: המשרד היוזם לפי התזכיר
+      - CommitteeID: קוד הועדה שדנה בהצעת החוק
+      - CommitteeName: שם הועדה
+      - "השרים הממונים"
+      - "סיווג - חוקי הסדרים"
+      - "סיווג - תקציב"
+      - Number: מספר מ’ של הצעת החוק
+      - PublicationDate: תאריך פרסום החוק בספר החוקים
+      - MagazineNumber: מספר חוברת
+      - PageNumber: מספר עמוד
+      - "מספר עמודי חקיקה"
+      - "מספר עמודי חקיקה - הערות"
+      - "דיון ראשון במליאה"
+      - "הונחה על שולחן הכנסת לקריאה ראשונה"
+      - "כמה זמן חלף בין הגשת הצעת החוק ועד הקריאה הראשונה"
+      - "כמה זמן חלף בין הגשת הצעת החוק ועד הקריאה הראשונה - לא כולל פגרות"
+#      - "כמה זמן חלף בין הדיון הראשון במליאה ועד ההצבעה הראשונה במליאה"
+#      - "כמה זמן חלף בין הדיון הראשון במליאה ועד ההצבעה הראשונה במליאה - לא כולל פגרות"
+      - "כמה זמן חלף בין ההצבעה הראשונה שהתקבלה ועד תחילת הדיון בה בוועדה הרלוונטית"
+      - "כמה זמן חלף בין ההצבעה הראשונה שהתקבלה ועד תחילת הדיון בה בוועדה הרלוונטית - לא כולל פגרות"
+      - "כמה זמן חלף בין תחילת הדיון בוועדה ועד לסיום הכנת החוק לקריאה שנייה ושלישית"
+      - "כמה זמן חלף בין תחילת הדיון בוועדה ועד לסיום הכנת החוק לקריאה שנייה ושלישית - לא כולל פגרות"
+      - "כמה זמן חלף מהגשת הצעת החוק ועד לאישור החוק"
+      - "כמה זמן חלף מהגשת הצעת החוק ועד לאישור החוק - לא כולל פגרות"
+      - "כמה זמן חלף מהדיון הראשון במליאה ועד לאישור החוק"
+      - "כמה זמן חלף מהדיון הראשון במליאה ועד לאישור החוק - לא כולל פגרות"
+  - run: dump.to_path
+    parameters:
+      out-path: data/bills_final

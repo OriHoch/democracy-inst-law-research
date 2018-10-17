@@ -1,0 +1,136 @@
+{
+  "bytes": 9199968,
+  "count_of_rows": 42093,
+  "hash": "f35a107ed645724bd61507c27c113152",
+  "name": "_",
+  "resources": [
+    {
+      "bytes": 18321341,
+      "count_of_rows": 84186,
+      "dialect": {
+        "delimiter": ",",
+        "doubleQuote": true,
+        "lineTerminator": "\r\n",
+        "quoteChar": "\"",
+        "skipInitialSpace": false
+      },
+      "dpp:streamedFrom": "http://storage.googleapis.com/knesset-data-pipelines/data/bills/kns_bill/kns_bill.csv",
+      "encoding": "utf-8",
+      "format": "csv",
+      "hash": "a867600930c5ac8ee7c748b2d6d54aeb",
+      "name": "bill_tazkirim",
+      "path": "bill_tazkirim.csv",
+      "profile": "data-resource",
+      "schema": {
+        "fields": [
+          {
+            "description": "קוד הצעת החוק המהווה מספר מזהה לכל הצעה מתחילת הטיפול בה בכנסת וכל אורך חייה\n",
+            "name": "BillID",
+            "type": "integer"
+          },
+          {
+            "description": "מספר הכנסת",
+            "name": "KnessetNum",
+            "type": "integer"
+          },
+          {
+            "description": "שם הצעת החוק",
+            "name": "Name",
+            "type": "string"
+          },
+          {
+            "description": "קוד סוג הצעת החוק כל הצעה יוצג סוג הצעת החוק ותיאור הסוג\n",
+            "name": "SubTypeID",
+            "type": "integer"
+          },
+          {
+            "description": "תיאור סוג הצעת החוק (פרטית, ממשלתית, וועדה)",
+            "name": "SubTypeDesc",
+            "type": "string"
+          },
+          {
+            "description": "מספר ה-פ' של הצעת החוק",
+            "name": "PrivateNumber",
+            "type": "integer"
+          },
+          {
+            "description": "קוד הוועדה המטפלת בהצעת החוק כל עוד לא נקבעה ועדה מטפלת העמודה תהיה ריקה\n",
+            "name": "CommitteeID",
+            "type": "integer"
+          },
+          {
+            "description": "קוד סטטוס",
+            "name": "StatusID",
+            "type": "integer"
+          },
+          {
+            "description": "מספר ה-כ' או ה-מ' של הצעת החוק ההצעה ממשלתית תקבל מספר מ' - מספר החוברת בסדרת הפרסום של הצעות חוק הממשלה הצעה פרטית או של הצעה של ועדה תקבל מספר כ' - מספר החוברת בסדרת הפרסום של הצעות חוק הכנסת העמודה תהיה ריקה טרם פרסום נוסח הצעת החוק לקריאה הראשונה\n",
+            "name": "Number",
+            "type": "integer"
+          },
+          {
+            "description": "קוד סיבת העצירה (אם ההצעה נעצרה)",
+            "name": "PostponementReasonID",
+            "type": "integer"
+          },
+          {
+            "description": "תיאור סיבת העצירה (אם ההצעה נעצרה)",
+            "name": "PostponementReasonDesc",
+            "type": "string"
+          },
+          {
+            "description": "תאריך פרסום בספר החוקים תאריך זה מעודכן רק לאחר הפרסום בספר החוקים ורק בשלב של יצירת הקשר בין הצעת החוק שהתקבלה בקריאה שלישית לבין חוק מדינת ישראל שאותו היא מתקנת או יוצרת. לכן העמודה עשויה להיות ריקה כל עוד המידע לא התעדכן.\n",
+            "format": "%Y-%m-%d %H:%M:%S",
+            "name": "PublicationDate",
+            "type": "datetime"
+          },
+          {
+            "description": "מספר חוברת בספר החוקים – ראה הערה לעיל לגבי PublicationDate",
+            "name": "MagazineNumber",
+            "type": "integer"
+          },
+          {
+            "description": "מספר עמוד בספר החוקים – ראה הערה לעיל לגבי PublicationDate",
+            "name": "PageNumber",
+            "type": "integer"
+          },
+          {
+            "description": "האם הוחל על הצעת החוק דין רציפות",
+            "name": "IsContinuationBill",
+            "type": "boolean"
+          },
+          {
+            "description": "תקציר החוק יהיה מידע רק לגבי הצעות חוק שהתקבלו בקריאה שלישית. העמודה עשויה להיות ריקה אם מדובר בהצעות חוק שהתקבלו בקריאה שלישית לפני הכנסת ה-17 שכן רק מאז תקופה זו החלו להכין אותם. כמו כן, בהצעות חוק שהתקבלו בקריאה שלישית אם התקציר טרם נכתב במערכת הפנימית.\n",
+            "name": "SummaryLaw",
+            "type": "string"
+          },
+          {
+            "description": "קוד סדרת הפרסום של החוק",
+            "name": "PublicationSeriesID",
+            "type": "integer"
+          },
+          {
+            "description": "תיאור סדרת הפרסום של החוק (ספר החוקים, דיני מדינת ישראל, עיתון רשמי מועצת המדינה הזמנית, עיתון רשמי מנדטורי, חוקי ארץ ישראל)\n",
+            "name": "PublicationSeriesDesc",
+            "type": "string"
+          },
+          {
+            "description": "קוד סדרת הפרסום של הצעת החוק לקריאה הראשונה – המידע יוצג רק לגבי הצעות חוק שפורסמו לקראת קריאה ראשונהתיאור סדרת הפרסום של הצעת החוק לקריאה הראשונה (הצעות חוק הכנסת וממשלה (עד אוקטובר 2003), ממועד זה ואילך יש שתי סדרות פרסום - הצעות חוק - הכנסת, הצעות חוק - הממשלה) - המידע יוצג רק לגבי הצעות חוק שפורסמו לקראת קריאה ראשונה\n",
+            "name": "PublicationSeriesFirstCall",
+            "type": "string"
+          },
+          {
+            "description": "תאריך עדכון אחרון",
+            "format": "%Y-%m-%d %H:%M:%S",
+            "name": "LastUpdatedDate",
+            "type": "datetime"
+          },
+          {
+            "name": "tazkir_offices",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

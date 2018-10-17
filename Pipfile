@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyquery = "*"
+datapackage-pipelines-metrics = "*"
+dataflows-serverless = "*"
+jupyter = "*"
+jupyterlab = "*"
+dataflows = {extras = ["speedup"], version = "*", editable = true}
+pandas = "*"
+ipython = "*"
+knesset-data-pipelines = {editable = true, git = "https://github.com/hasadna/knesset-data-pipelines.git"}
+
+[dev-packages]
+
+[requires]
+python_version = "3.6"
