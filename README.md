@@ -4,4 +4,4 @@
 
 ## מידע עדכני כתוצאה מהמחקר
 
-[bills_final_Jul28_2018.xlsx](bills_final_Jul28_2018.xlsx)
+[bills_final_Jul28_2018.xlsx](https://github.com/OriHoch/democracy-inst-law-research/raw/master/bills_final_Jul28_2018.xlsx)
