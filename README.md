@@ -2,3 +2,6 @@
 
 המחקר בוצע עבור המכון הישראלי לדמקורטיה על בסיס נתונים מפרוייקט [נתוני הכנסת / כנסת פתוחה](https://github.com/hasadna/knesset-data-pipelines)
 
+## מידע עדכני כתוצאה מהמחקר
+
+[bills_final_Jul28_2018.xlsx](bills_final_Jul28_2018.xlsx)
